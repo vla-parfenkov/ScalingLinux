@@ -12,5 +12,5 @@ include_directories(${X11_INCLUDE_DIR})
 
 
 
-set(SOURCE_FILES src/main.cpp src/desktop_resizer.cpp src/argument_parser.cpp)
+set(SOURCE_FILES src/main.cpp src/desktop_resizer.cpp src/argument_parser.cpp src/screen_resource.cpp )
 add_executable(scalingUnixSystem ${SOURCE_FILES})

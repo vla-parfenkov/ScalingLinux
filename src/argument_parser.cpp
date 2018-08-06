@@ -6,24 +6,36 @@
 
 
 CArgumentParser::CArgumentParser() {
-
+    modes["--scale"] = new CDesktopResizerScaleMod();
+    modes["--dpi"] = new CDesktopResizerDpiMode();
 }
 
-CArgumentParser::~CArgumentParser() {}
+CArgumentParser::~CArgumentParser() {
+    for(auto& item : modes)
+    {
+        delete item.second;
+    }
+}
 
 CDesktopResizer* CArgumentParser::Parse(char **argument) {
-    scale = std::stoi(argument[1]);
+    try {
+        scale = std::stoi(argument[1]);
+    } catch (std::logic_error) {
+        throw std::invalid_argument("Bad argument");
+    }
+
     if (argument[2] == NULL) {
-        mode.append("--dpi");
+        mode.append("--scale");
     } else {
         mode.append(argument[2]);
     }
 
-    if (mode == "--dpi") {
-        return new CDesktopResizerDpiMode();
+    try {
+        return modes.at(mode);
+    } catch (std::out_of_range) {
+            throw std::invalid_argument("Bad argument");
     }
 
-    throw std::runtime_error("Bad argument");
 }
 
 

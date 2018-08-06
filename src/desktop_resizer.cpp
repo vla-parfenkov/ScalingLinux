@@ -69,3 +69,73 @@ void CDesktopResizerDpiMode::SetScale(int scale) {
     XSync(dpy, False);
 }
 
+
+void CDesktopResizerScaleMod::SetScale(int scale) {
+    XGrabServer(dpy);
+    CScreenResources* screenResources = new CScreenResources();
+
+    try {
+        screenResources->Refresh(dpy, window);
+    } catch (std::invalid_argument error) {
+        return;
+    }
+
+    std::string mode = "Scaling mode ";
+    deleteMode(mode.c_str(), screenResources);
+    createMode(mode.c_str(),DisplayWidth(dpy, screen), DisplayHeight(dpy,screen), screenResources);
+    XTransform transform;
+    std::string filter;
+    double k_scaling = static_cast<double >(scale)/100.0;
+    k_scaling = 1.0/k_scaling;
+
+    std::memset (&transform, '\0', sizeof (transform));
+    transform.matrix[0][0] = XDoubleToFixed (k_scaling);
+    transform.matrix[1][1] = XDoubleToFixed (k_scaling);
+    transform.matrix[2][2] = XDoubleToFixed (1.0);
+
+    if (k_scaling != 1) {
+        filter.append("bilinear");
+    } else {
+        filter.append("nearest");
+    }
+
+    XRRSetCrtcTransform(dpy, screenResources->GetCrtc(), &transform, filter.c_str(), NULL, 0);
+    XRRSetCrtcConfig(dpy, screenResources->Get(), screenResources->GetCrtc(),
+                     CurrentTime, 0, 0, screenResources->GetIdForMode(mode.c_str()), RR_Rotate_0,
+                     screenResources->Get()->outputs, screenResources->Get()->noutput);
+    delete screenResources;
+    XUngrabServer(dpy);
+
+}
+
+void CDesktopResizerScaleMod::createMode(const char *name, int width, int height, CScreenResources *resources) {
+    XRRModeInfo mode;
+    std::memset(&mode, 0, sizeof(mode));
+    mode.width = static_cast<unsigned int>(width);
+    mode.height = static_cast<unsigned int>(height);
+    mode.name = const_cast<char*>(name);
+    mode.nameLength = static_cast<unsigned int>(strlen(name));
+    XRRCreateMode(dpy, window, &mode);
+
+    try {
+        resources->Refresh(dpy, window);
+    } catch (std::invalid_argument error) {
+        return;
+    }
+    RRMode mode_id = resources->GetIdForMode(name);
+    if (!mode_id) {
+        return;
+    }
+    XRRAddOutputMode(dpy, resources->GetOutput(), mode_id);
+
+}
+
+void CDesktopResizerScaleMod::deleteMode(const char *name, CScreenResources *resources) {
+    RRMode mode_id = resources->GetIdForMode(name);
+    if (mode_id) {
+        XRRDeleteOutputMode(dpy, resources->GetOutput(), mode_id);
+        XRRDestroyMode(dpy, mode_id);
+        resources->Refresh(dpy, window);
+    }
+}
+

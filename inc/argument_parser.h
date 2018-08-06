@@ -8,9 +8,11 @@
 
 #include <iostream>
 #include "desktop_resizer.h"
+#include <map>
 
 class CArgumentParser {
 private:
+    std::map<std::string, CDesktopResizer*> modes;
     std::string mode;
     int scale;
 public:

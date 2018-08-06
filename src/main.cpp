@@ -9,7 +9,6 @@ int main(int argc, char* argv[]) {
 
     desktopResizer->SetScale(argumentParser->GetScale());
 
-    delete desktopResizer;
     delete argumentParser;
     return 0;
 }

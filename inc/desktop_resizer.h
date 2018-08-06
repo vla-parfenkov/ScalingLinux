@@ -10,6 +10,7 @@
 #include <X11/Xlib.h>
 #include <stdexcept>
 #include <cstring>
+#include "screen_resource.h"
 
 
 
@@ -22,7 +23,6 @@ protected:
     int pixelsToMillimeters(int pixels, double dpi);
     int millimetersToPixels(int mm, double dpi);
 
-
 public:
     CDesktopResizer();
     ~CDesktopResizer();
@@ -34,6 +34,15 @@ public:
 
 class CDesktopResizerDpiMode : public CDesktopResizer {
     void SetScale(int scale) override;
+};
+
+class CDesktopResizerScaleMod : public CDesktopResizer {
+    void SetScale(int scale) override;
+
+private:
+
+    void createMode(const char* name, int width, int height, CScreenResources* resources);
+    void deleteMode(const char* name, CScreenResources* resources);
 };
 
 
