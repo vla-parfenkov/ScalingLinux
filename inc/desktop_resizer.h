@@ -12,6 +12,13 @@
 #include <cstring>
 #include "screen_resource.h"
 
+typedef struct {
+    int	    x1, y1, x2, y2;
+} box;
+
+typedef struct {
+    int	    x, y;
+} point;
 
 
 class CDesktopResizer {
@@ -19,9 +26,17 @@ protected:
     Window window;
     Display *dpy;
     int screen;
+    CScreenResources* resources;
+    int maxWidth;
+    int maxHeight;
+    int minWidth;
+    int minHeight;
+
 
     int pixelsToMillimeters(int pixels, double dpi);
     int millimetersToPixels(int mm, double dpi);
+    void  setScreenSize(const XTransform* transform);
+    void transformPoint(const XTransform* transform, double* x, double* y);
 
 public:
     CDesktopResizer();
@@ -41,8 +56,8 @@ class CDesktopResizerScaleMod : public CDesktopResizer {
 
 private:
 
-    void createMode(const char* name, int width, int height, CScreenResources* resources);
-    void deleteMode(const char* name, CScreenResources* resources);
+    void createMode(const char* name, int width, int height);
+    void deleteMode(const char* name);
 };
 
 

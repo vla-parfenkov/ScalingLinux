@@ -18,7 +18,7 @@ public:
     ~CScreenResources();
     XRRScreenResources* Get();
     RRCrtc GetCrtc();
-    RROutput GetOutput();
+    RROutput GetOutput(Display *display, Window window);
     RRMode GetIdForMode(const char* name);
     void Refresh(Display* display, Window window);
     XRROutputInfo* GetOutputInfo(Display* display, RROutput output_id);

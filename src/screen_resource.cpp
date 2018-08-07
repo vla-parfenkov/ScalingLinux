@@ -22,8 +22,21 @@ RRCrtc CScreenResources::GetCrtc() {
     return resources->crtcs[0];
 }
 
-RROutput CScreenResources::GetOutput() {
-    return resources->outputs[0];
+RROutput CScreenResources::GetOutput(Display *display, Window window) {
+    RROutput output;
+    int xRandRMajor, xRandRMinor;
+    XRRQueryVersion(display, &xRandRMajor, &xRandRMinor);
+
+    // If version > 1.2 get the primary screen else take the first screen
+    if ((xRandRMajor == 1 && xRandRMinor >= 3) || xRandRMajor > 1)
+    {
+        output = XRRGetOutputPrimary(display, window);
+    }
+    else
+    {
+        output = resources->outputs[0];
+    }
+    return output;
 }
 
 RRMode CScreenResources::GetIdForMode(const char *name) {
@@ -57,3 +70,5 @@ void CScreenResources::Refresh(Display *display, Window window) {
 XRROutputInfo *CScreenResources::GetOutputInfo(Display *display, RROutput output_id) {
     return XRRGetOutputInfo(display, resources, output_id);
 }
+
+

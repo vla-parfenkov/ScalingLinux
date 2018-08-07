@@ -6,6 +6,7 @@
 
 #include "desktop_resizer.h"
 #include <fstream>
+#include <cmath>
 
 
 CDesktopResizer::CDesktopResizer() {
@@ -30,10 +31,21 @@ CDesktopResizer::CDesktopResizer() {
 
     window = RootWindow(dpy, screen);
     XRRSelectInput (dpy, window, RRScreenChangeNotifyMask);
+
+    resources = new CScreenResources();
+
+    try {
+        resources->Refresh(dpy, window);
+    } catch (std::invalid_argument error) {
+        return;
+    }
+
+    XRRGetScreenSizeRange (dpy, window, &minWidth, &minHeight, &maxWidth, &maxHeight);
 }
 
 CDesktopResizer::~CDesktopResizer() {
     XCloseDisplay(dpy);
+    delete resources;
 }
 
 
@@ -72,17 +84,6 @@ void CDesktopResizerDpiMode::SetScale(int scale) {
 
 void CDesktopResizerScaleMod::SetScale(int scale) {
     XGrabServer(dpy);
-    CScreenResources* screenResources = new CScreenResources();
-
-    try {
-        screenResources->Refresh(dpy, window);
-    } catch (std::invalid_argument error) {
-        return;
-    }
-
-    std::string mode = "Scaling mode ";
-    deleteMode(mode.c_str(), screenResources);
-    createMode(mode.c_str(),DisplayWidth(dpy, screen), DisplayHeight(dpy,screen), screenResources);
     XTransform transform;
     std::string filter;
     double k_scaling = static_cast<double >(scale)/100.0;
@@ -99,16 +100,25 @@ void CDesktopResizerScaleMod::SetScale(int scale) {
         filter.append("nearest");
     }
 
-    XRRSetCrtcTransform(dpy, screenResources->GetCrtc(), &transform, filter.c_str(), NULL, 0);
-    XRRSetCrtcConfig(dpy, screenResources->Get(), screenResources->GetCrtc(),
-                     CurrentTime, 0, 0, screenResources->GetIdForMode(mode.c_str()), RR_Rotate_0,
-                     screenResources->Get()->outputs, screenResources->Get()->noutput);
-    delete screenResources;
+    XRRSetCrtcConfig (dpy, resources->Get(), resources->GetCrtc(), CurrentTime, 0, 0, None, RR_Rotate_0, NULL, 0);
+    try {
+        setScreenSize(&transform);
+        XRRSetCrtcTransform(dpy, resources->GetCrtc(), &transform, filter.c_str(), NULL, 0);
+        XRRSetCrtcConfig(dpy, resources->Get(), resources->GetCrtc(),
+                         CurrentTime, 0, 0, resources->Get()->modes[0].id, RR_Rotate_0,
+                         resources->Get()->outputs, 1);
+    } catch (std::invalid_argument) {
+        XRRSetCrtcConfig(dpy, resources->Get(), resources->GetCrtc(),
+                         CurrentTime, 0, 0, resources->Get()->modes[0].id, RR_Rotate_0,
+                         resources->Get()->outputs, 1);
+    }
+
     XUngrabServer(dpy);
+    XSync (dpy, False);
 
 }
 
-void CDesktopResizerScaleMod::createMode(const char *name, int width, int height, CScreenResources *resources) {
+void CDesktopResizerScaleMod::createMode(const char *name, int width, int height) {
     XRRModeInfo mode;
     std::memset(&mode, 0, sizeof(mode));
     mode.width = static_cast<unsigned int>(width);
@@ -126,16 +136,109 @@ void CDesktopResizerScaleMod::createMode(const char *name, int width, int height
     if (!mode_id) {
         return;
     }
-    XRRAddOutputMode(dpy, resources->GetOutput(), mode_id);
+    XRRAddOutputMode(dpy, resources->GetOutput(dpy, window), mode_id);
 
 }
 
-void CDesktopResizerScaleMod::deleteMode(const char *name, CScreenResources *resources) {
+void CDesktopResizerScaleMod::deleteMode(const char *name) {
     RRMode mode_id = resources->GetIdForMode(name);
     if (mode_id) {
-        XRRDeleteOutputMode(dpy, resources->GetOutput(), mode_id);
+        XRRDeleteOutputMode(dpy, resources->GetOutput(dpy, window), mode_id);
         XRRDestroyMode(dpy, mode_id);
         resources->Refresh(dpy, window);
     }
 }
 
+void CDesktopResizer::setScreenSize(const XTransform* transform) {
+    int	    x, y, w, h;
+    box	    bounds;
+
+    point rect[4];
+    rect[0].x = 0;
+    rect[0].y = 0;
+    rect[1].x = resources->Get()->modes->width;
+    rect[1].y = 0;
+    rect[2].x =resources->Get()->modes->width;
+    rect[2].y = resources->Get()->modes->height;
+    rect[3].x = 0;
+    rect[3].y = resources->Get()->modes->height;
+    int	    i;
+    box   point;
+
+    for (i = 0; i < 4; i++) {
+        double	x, y;
+        x = rect[i].x;
+        y = rect[i].y;
+        transformPoint(transform, &x, &y);
+        point.x1 = floor (x);
+        point.y1 = floor (y);
+        point.x2 = ceil (x);
+        point.y2 = ceil (y);
+        if (i == 0)
+            bounds = point;
+        else {
+            if (point.x1 < bounds.x1) bounds.x1 = point.x1;
+            if (point.y1 < bounds.y1) bounds.y1 = point.y1;
+            if (point.x2 > bounds.x2) bounds.x2 = point.x2;
+            if (point.y2 > bounds.y2) bounds.y2 = point.y2;
+        }
+    }
+    x = bounds.x1;
+    y = bounds.y1;
+    w = bounds.x2 - bounds.x1;
+    h = bounds.y2 - bounds.y1;
+    int fb_width = x + w;
+    int fb_height = y + h;
+    if (fb_width > maxWidth || fb_height > maxHeight) {
+        throw std::invalid_argument("bad size");
+    }
+    if (fb_width < minWidth) {
+        fb_width = minWidth;
+    }
+    if (fb_height < minHeight) {
+        fb_height = minHeight;
+    }
+
+    int fb_width_mm;
+    int fb_height_mm;
+
+    if (fb_width != DisplayWidth (dpy, screen) || fb_height != DisplayHeight (dpy, screen) ) {
+        double dpi = (25.4 * DisplayHeight (dpy, screen)) / DisplayHeightMM(dpy, screen);
+            fb_width_mm = static_cast<int>((25.4 * fb_width) / dpi);
+            fb_height_mm = static_cast<int>((25.4 * fb_height) / dpi);
+    } else {
+            fb_width_mm = DisplayWidthMM (dpy, screen);
+            fb_height_mm = DisplayHeightMM (dpy, screen);
+    }
+
+    XRRSetScreenSize (dpy, window, fb_width, fb_height, fb_width_mm, fb_height_mm);
+}
+
+
+
+void CDesktopResizer::transformPoint(const XTransform* transform, double* x, double* y) {
+    double  vector[3];
+    double  result[3];
+    int	    i, j;
+    double  v;
+
+    vector[0] = *x;
+    vector[1] = *y;
+    vector[2] = 1;
+    for (j = 0; j < 3; j++)
+    {
+        v = 0;
+        for (i = 0; i < 3; i++)
+            v += (XFixedToDouble (transform->matrix[j][i]) * vector[i]);
+        result[j] = v;
+    }
+    if (!result[2])
+        return;
+    for (j = 0; j < 2; j++) {
+        vector[j] = result[j] / result[2];
+        if (vector[j] > 32767 || vector[j] < -32767)
+            return;
+    }
+    *x = vector[0];
+    *y = vector[1];
+}
