@@ -24,6 +24,10 @@ CDesktopResizer* CArgumentParser::Parse(char **argument) {
         throw std::invalid_argument("Bad argument");
     }
 
+    if(scale < 50) {
+        throw std::invalid_argument("Bad argument");
+    }
+
     if (argument[2] == NULL) {
         mode.append("--scale");
     } else {

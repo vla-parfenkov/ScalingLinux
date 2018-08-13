@@ -54,15 +54,12 @@ int CDesktopResizer::pixelsToMillimeters(int pixels, double dpi) {
         std::string error = "Invalid dpi number ";
         throw std::runtime_error(error);
     }
-    const double mm_per_inch = 25.4;
-    return static_cast<int>((mm_per_inch * pixels)/dpi);
+    return static_cast<int>((options::mm_per_inch * pixels)/dpi);
 }
 
 
 int CDesktopResizer::millimetersToPixels(int mm, double dpi) {
-    const double mm_per_inch = 25.4;
-
-    return static_cast<int>((dpi * mm) / mm_per_inch);
+    return static_cast<int>((dpi * mm) / options::mm_per_inch);
 }
 
 void CDesktopResizerDpiMode::SetScale(int scale) {
@@ -71,7 +68,7 @@ void CDesktopResizerDpiMode::SetScale(int scale) {
     int display_height = DisplayHeight(dpy, screen);
     int display_width = DisplayWidth(dpy, screen);
 
-    double dpi = (25.4 * DisplayHeight (dpy, screen)) / DisplayHeightMM(dpy, screen);
+    double dpi = (options::mm_per_inch * DisplayHeight (dpy, screen)) / DisplayHeightMM(dpy, screen);
 
     dpi = dpi*k_scaling;
     int display_height_mm = pixelsToMillimeters(display_height, dpi);
@@ -107,7 +104,8 @@ void CDesktopResizerScaleMod::SetScale(int scale) {
         XRRSetCrtcConfig(dpy, resources->Get(), resources->GetCrtc(),
                          CurrentTime, 0, 0, resources->Get()->modes[0].id, RR_Rotate_0,
                          resources->Get()->outputs, 1);
-    } catch (std::invalid_argument) {
+        setPanning(static_cast<double >(scale)/100.0);
+    } catch (...) {
         XRRSetCrtcConfig(dpy, resources->Get(), resources->GetCrtc(),
                          CurrentTime, 0, 0, resources->Get()->modes[0].id, RR_Rotate_0,
                          resources->Get()->outputs, 1);
@@ -170,10 +168,10 @@ void CDesktopResizer::setScreenSize(const XTransform* transform) {
         x = rect[i].x;
         y = rect[i].y;
         transformPoint(transform, &x, &y);
-        point.x1 = floor (x);
-        point.y1 = floor (y);
-        point.x2 = ceil (x);
-        point.y2 = ceil (y);
+        point.x1 = std::floor (x);
+        point.y1 = std::floor (y);
+        point.x2 = std::ceil (x);
+        point.y2 = std::ceil (y);
         if (i == 0)
             bounds = point;
         else {
@@ -203,9 +201,9 @@ void CDesktopResizer::setScreenSize(const XTransform* transform) {
     int fb_height_mm;
 
     if (fb_width != DisplayWidth (dpy, screen) || fb_height != DisplayHeight (dpy, screen) ) {
-        double dpi = (25.4 * DisplayHeight (dpy, screen)) / DisplayHeightMM(dpy, screen);
-            fb_width_mm = static_cast<int>((25.4 * fb_width) / dpi);
-            fb_height_mm = static_cast<int>((25.4 * fb_height) / dpi);
+        double dpi = (options::mm_per_inch * DisplayHeight (dpy, screen)) / DisplayHeightMM(dpy, screen);
+            fb_width_mm = static_cast<int>((options::mm_per_inch * fb_width) / dpi);
+            fb_height_mm = static_cast<int>((options::mm_per_inch * fb_height) / dpi);
     } else {
             fb_width_mm = DisplayWidthMM (dpy, screen);
             fb_height_mm = DisplayHeightMM (dpy, screen);
@@ -241,4 +239,18 @@ void CDesktopResizer::transformPoint(const XTransform* transform, double* x, dou
     }
     *x = vector[0];
     *y = vector[1];
+}
+
+
+
+void CDesktopResizer::setPanning(double scale) {
+    XRRPanning* pan = XRRGetPanning(dpy, resources->Get(), resources->GetCrtc());
+
+    pan->width = static_cast<unsigned int>(resources->Get()->modes->width * scale);
+    pan->height = static_cast<unsigned int>(resources->Get()->modes->height * scale);
+    pan->top = pan->left = pan->track_left = pan->track_top = pan->track_width = 0;
+    pan->track_height = pan->border_left = pan->border_top = pan->border_right = pan->border_bottom = 0;
+
+    XRRSetPanning(dpy, resources->Get(), resources->GetCrtc(), pan);
+    XFree(pan);
 }

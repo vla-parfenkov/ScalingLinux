@@ -12,12 +12,17 @@
 #include <cstring>
 #include "screen_resource.h"
 
+
+namespace options {
+    const double mm_per_inch = 25.4;
+}
+
 typedef struct {
-    int	    x1, y1, x2, y2;
+    size_t	    x1, y1, x2, y2;
 } box;
 
 typedef struct {
-    int	    x, y;
+    size_t	    x, y;
 } point;
 
 
@@ -37,6 +42,8 @@ protected:
     int millimetersToPixels(int mm, double dpi);
     void  setScreenSize(const XTransform* transform);
     void transformPoint(const XTransform* transform, double* x, double* y);
+    void setPanning(double scale);
+
 
 public:
     CDesktopResizer();
@@ -58,6 +65,7 @@ private:
 
     void createMode(const char* name, int width, int height);
     void deleteMode(const char* name);
+
 };
 
 
