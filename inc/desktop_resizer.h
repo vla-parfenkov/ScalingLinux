@@ -15,6 +15,8 @@
 
 namespace options {
     const double mm_per_inch = 25.4;
+    const double dpi_st = 96.0;
+    const std::string log_path = "/var/log/Xorg.0.log";
 }
 
 typedef struct {
@@ -55,12 +57,16 @@ public:
 
 
 class CDesktopResizerDpiMode : public CDesktopResizer {
+public:
     void SetScale(int scale) override;
+
+private:
+    double tryToFindInitialDPI();
 };
 
 class CDesktopResizerScaleMod : public CDesktopResizer {
+public:
     void SetScale(int scale) override;
-
 private:
 
     void createMode(const char* name, int width, int height);

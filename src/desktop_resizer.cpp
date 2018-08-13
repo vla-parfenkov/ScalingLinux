@@ -68,9 +68,8 @@ void CDesktopResizerDpiMode::SetScale(int scale) {
     int display_height = DisplayHeight(dpy, screen);
     int display_width = DisplayWidth(dpy, screen);
 
-    double dpi = (options::mm_per_inch * DisplayHeight (dpy, screen)) / DisplayHeightMM(dpy, screen);
+    double dpi = tryToFindInitialDPI() * k_scaling;
 
-    dpi = dpi*k_scaling;
     int display_height_mm = pixelsToMillimeters(display_height, dpi);
     int display_width_mm = pixelsToMillimeters(display_width, dpi);
 
@@ -253,4 +252,33 @@ void CDesktopResizer::setPanning(double scale) {
 
     XRRSetPanning(dpy, resources->Get(), resources->GetCrtc(), pan);
     XFree(pan);
+}
+
+
+double CDesktopResizerDpiMode::tryToFindInitialDPI() {
+    std::ifstream in(options::log_path);
+    std::string data;
+    double dpi = options::dpi_st;
+
+    while (!in.eof()) {
+        in >> data;
+        if (data == "DPI") {
+            in >> data;
+            in >> data;
+            if (data == "to") {
+               in >> data;
+                data.pop_back();
+                data.erase(0, 1);
+                data;
+                try {
+                    dpi = std::stoi(data);
+                } catch (std::logic_error) {
+                    dpi = options::dpi_st;
+                }
+                break;
+            }
+        }
+    }
+    in.close();
+    return dpi;
 }
