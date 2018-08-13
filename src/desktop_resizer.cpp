@@ -7,6 +7,7 @@
 #include "desktop_resizer.h"
 #include <fstream>
 #include <cmath>
+#include <iostream>
 
 
 CDesktopResizer::CDesktopResizer() {
@@ -184,8 +185,8 @@ void CDesktopResizer::setScreenSize(const XTransform* transform) {
     y = bounds.y1;
     w = bounds.x2 - bounds.x1;
     h = bounds.y2 - bounds.y1;
-    int fb_width = x + w;
-    int fb_height = y + h;
+    fb_width = x + w;
+    fb_height = y + h;
     if (fb_width > maxWidth || fb_height > maxHeight) {
         throw std::invalid_argument("bad size");
     }
@@ -208,6 +209,8 @@ void CDesktopResizer::setScreenSize(const XTransform* transform) {
             fb_height_mm = DisplayHeightMM (dpy, screen);
     }
 
+
+   
     XRRSetScreenSize (dpy, window, fb_width, fb_height, fb_width_mm, fb_height_mm);
 }
 
@@ -243,15 +246,22 @@ void CDesktopResizer::transformPoint(const XTransform* transform, double* x, dou
 
 
 void CDesktopResizer::setPanning(double scale) {
-    XRRPanning* pan = XRRGetPanning(dpy, resources->Get(), resources->GetCrtc());
+    if (scale < 1) {
+        XRRPanning *pan = XRRGetPanning(dpy, resources->Get(), resources->GetCrtc());
 
-    pan->width = static_cast<unsigned int>(resources->Get()->modes->width * scale);
-    pan->height = static_cast<unsigned int>(resources->Get()->modes->height * scale);
-    pan->top = pan->left = pan->track_left = pan->track_top = pan->track_width = 0;
-    pan->track_height = pan->border_left = pan->border_top = pan->border_right = pan->border_bottom = 0;
+        if (fb_width == 0 && fb_height == 0) {
+            pan->width = static_cast<unsigned int>(resources->Get()->modes->width * scale);
+            pan->height = static_cast<unsigned int>(resources->Get()->modes->height * scale);
+        } else {
+            pan->width = fb_width;
+            pan->height = fb_height;
+        }
+        pan->top = pan->left = pan->track_left = pan->track_top = pan->track_width = 0;
+        pan->track_height = pan->border_left = pan->border_top = pan->border_right = pan->border_bottom = 0;
 
-    XRRSetPanning(dpy, resources->Get(), resources->GetCrtc(), pan);
-    XFree(pan);
+        XRRSetPanning(dpy, resources->Get(), resources->GetCrtc(), pan);
+        XFree(pan);
+    }
 }
 
 

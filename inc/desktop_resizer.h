@@ -38,6 +38,7 @@ protected:
     int maxHeight;
     int minWidth;
     int minHeight;
+    int fb_width, fb_height;
 
 
     int pixelsToMillimeters(int pixels, double dpi);
