@@ -3,11 +3,14 @@
 #include "argument_parser.h"
 
 int main(int argc, char* argv[]) {
-    CArgumentParser* argumentParser = new CArgumentParser();
+    auto argumentParser = new CArgumentParser();
 
-    CDesktopResizer* desktopResizer = argumentParser->Parse(argv);
-
-    desktopResizer->SetScale(argumentParser->GetScale());
+    try {
+        auto desktopResizer = argumentParser->Parse(argv);
+        desktopResizer->SetScale(argumentParser->GetScale());
+    } catch (std::logic_error const &error) {
+        std::cout << error.what() << std::endl;
+    }
 
     delete argumentParser;
     return 0;

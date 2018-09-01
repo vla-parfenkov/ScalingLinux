@@ -10,18 +10,21 @@
 
 class CScreenResources {
 private:
+
     XRRScreenResources* resources;
+    RROutput rrOutput;
+    Display* display;
+    Window window;
     void release();
 
 public:
-    CScreenResources();
+    CScreenResources(Display* dpy, Window wind);
     ~CScreenResources();
     XRRScreenResources* Get();
     RRCrtc GetCrtc();
-    RROutput GetOutput(Display *display, Window window);
+    RROutput GetOutput();
     RRMode GetIdForMode(const char* name);
-    void Refresh(Display* display, Window window);
-    XRROutputInfo* GetOutputInfo(Display* display, RROutput output_id);
+    void Refresh();
 
 };
 

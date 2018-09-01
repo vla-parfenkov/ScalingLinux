@@ -14,13 +14,13 @@ class CArgumentParser {
 private:
     std::map<std::string, CDesktopResizer*> modes;
     std::string mode;
-    int scale;
+    uint32_t scale;
 public:
     CArgumentParser();
     ~CArgumentParser();
 
     CDesktopResizer* Parse(char** argument);
-    int& GetScale();
+    uint32_t& GetScale();
 };
 
 

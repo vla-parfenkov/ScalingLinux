@@ -30,6 +30,7 @@ typedef struct {
 
 class CDesktopResizer {
 protected:
+    bool grab;
     Window window;
     Display *dpy;
     int screen;
@@ -52,14 +53,14 @@ public:
     CDesktopResizer();
     ~CDesktopResizer();
 
-    virtual void SetScale(int scale) {}
+    virtual void SetScale(uint32_t scale) {}
 
 };
 
 
 class CDesktopResizerDpiMode : public CDesktopResizer {
 public:
-    void SetScale(int scale) override;
+    void SetScale(uint32_t scale) override;
 
 private:
     double tryToFindInitialDPI();
@@ -67,12 +68,7 @@ private:
 
 class CDesktopResizerScaleMod : public CDesktopResizer {
 public:
-    void SetScale(int scale) override;
-private:
-
-    void createMode(const char* name, int width, int height);
-    void deleteMode(const char* name);
-
+    void SetScale(uint32_t scale) override;
 };
 
 

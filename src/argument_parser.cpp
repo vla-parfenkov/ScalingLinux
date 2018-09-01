@@ -19,8 +19,8 @@ CArgumentParser::~CArgumentParser() {
 
 CDesktopResizer* CArgumentParser::Parse(char **argument) {
     try {
-        scale = std::stoi(argument[1]);
-    } catch (std::logic_error) {
+        scale = static_cast<uint32_t >(std::stoi(argument[1]));
+    } catch (std::logic_error const &error) {
         throw std::invalid_argument("Bad argument");
     }
 
@@ -36,13 +36,13 @@ CDesktopResizer* CArgumentParser::Parse(char **argument) {
 
     try {
         return modes.at(mode);
-    } catch (std::out_of_range) {
+    } catch (std::out_of_range const &error) {
             throw std::invalid_argument("Bad argument");
     }
 
 }
 
 
-int& CArgumentParser::GetScale() {
+uint32_t& CArgumentParser::GetScale() {
     return scale;
 }
