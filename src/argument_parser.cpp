@@ -5,16 +5,16 @@
 #include "argument_parser.h"
 
 
+
 CArgumentParser::CArgumentParser() {
-    modes["--scale"] = new CDesktopResizerScaleMod();
-    modes["--dpi"] = new CDesktopResizerDpiMode();
+
+    std::function<CDesktopResizer*()> scale_mode = []() { return CDesktopResizerScaleMod::Create(); };
+    std::function<CDesktopResizer*()> dpi_mode = []() { return new CDesktopResizerXDpiMode(); };
+    modes["--scale"] = scale_mode;
+    modes["--dpi"] = dpi_mode;
 }
 
 CArgumentParser::~CArgumentParser() {
-    for(auto& item : modes)
-    {
-        delete item.second;
-    }
 }
 
 CDesktopResizer* CArgumentParser::Parse(char **argument) {
@@ -28,21 +28,28 @@ CDesktopResizer* CArgumentParser::Parse(char **argument) {
         throw std::invalid_argument("Bad argument");
     }
 
-    if (argument[2] == NULL) {
+    if (argument[2] == nullptr) {
         mode.append("--scale");
     } else {
         mode.append(argument[2]);
     }
 
     try {
-        return modes.at(mode);
+        return modes.at(mode)();
     } catch (std::out_of_range const &error) {
             throw std::invalid_argument("Bad argument");
     }
 
+
+
+
 }
 
 
-uint32_t& CArgumentParser::GetScale() {
+uint32_t& CArgumentParser::GetScale()  {
     return scale;
+}
+
+const std::string &CArgumentParser::GetMode() const {
+    return mode;
 }

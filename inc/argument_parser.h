@@ -7,12 +7,14 @@
 
 
 #include <iostream>
+#include <functional>
 #include "desktop_resizer.h"
 #include <map>
 
+
 class CArgumentParser {
 private:
-    std::map<std::string, CDesktopResizer*> modes;
+    std::map<std::string, std::function<CDesktopResizer*()>> modes;
     std::string mode;
     uint32_t scale;
 public:
@@ -21,6 +23,8 @@ public:
 
     CDesktopResizer* Parse(char** argument);
     uint32_t& GetScale();
+
+    const std::string &GetMode() const;
 };
 
 

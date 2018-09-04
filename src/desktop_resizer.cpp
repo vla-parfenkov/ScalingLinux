@@ -8,6 +8,7 @@
 #include <fstream>
 #include <cmath>
 #include <iostream>
+#include <desktop_resizer.h>
 
 
 CDesktopResizer::CDesktopResizer() : grab(false) {
@@ -63,7 +64,8 @@ int CDesktopResizer::millimetersToPixels(int mm, double dpi) {
     return static_cast<int>((dpi * mm) / options::mm_per_inch);
 }
 
-void CDesktopResizerDpiMode::SetScale(uint32_t scale) {
+/*This mod may not work in Ubuntu*/
+void CDesktopResizerXDpiMode::SetScale(uint32_t scale) {
     double k_scaling = static_cast<double >(scale)/100.0;
 
     int display_height = DisplayHeight(dpy, screen);
@@ -77,46 +79,6 @@ void CDesktopResizerDpiMode::SetScale(uint32_t scale) {
     XRRSetScreenSize(dpy, window, display_width, display_height, display_width_mm, display_height_mm);
     XSync(dpy, False);
 }
-
-
-void CDesktopResizerScaleMod::SetScale(uint32_t scale) {
-    XGrabServer(dpy);
-    XTransform transform;
-    std::string filter;
-    double k_scaling = static_cast<double >(scale)/100.0;
-    k_scaling = 1.0/k_scaling;
-
-    std::memset (&transform, '\0', sizeof (transform));
-    transform.matrix[0][0] = XDoubleToFixed (k_scaling);
-    transform.matrix[1][1] = XDoubleToFixed (k_scaling);
-    transform.matrix[2][2] = XDoubleToFixed (1.0);
-
-    if (k_scaling != 1) {
-        filter.append("bilinear");
-    } else {
-        filter.append("nearest");
-    }
-
-    RROutput output = resources->GetOutput();
-    XRRSetCrtcConfig (dpy, resources->Get(), resources->GetCrtc(), CurrentTime, 0, 0, None, RR_Rotate_0, NULL, 0);
-    try {
-        setScreenSize(&transform);
-        XRRSetCrtcTransform(dpy, resources->GetCrtc(), &transform, filter.c_str(), NULL, 0);
-        Status s = XRRSetCrtcConfig(dpy, resources->Get(), resources->GetCrtc(),
-                         CurrentTime, 0, 0, resources->Get()->modes[0].id, RR_Rotate_0,
-                         &output, 1);
-        if (s == RRSetConfigSuccess) {
-            setPanning(static_cast<double >(scale) / 100.0);
-        }
-    } catch (std::runtime_error const &error) {
-        XRRSetCrtcConfig(dpy, resources->Get(), resources->GetCrtc(),
-                         CurrentTime, 0, 0, resources->Get()->modes[0].id, RR_Rotate_0,
-                         &output, 1);
-    }
-    XUngrabServer(dpy);
-    XSync (dpy, False);
-}
-
 
 
 void CDesktopResizer::setScreenSize(const XTransform* transform) {
@@ -245,8 +207,8 @@ void CDesktopResizer::setPanning(double scale) {
 }
 
 
-double CDesktopResizerDpiMode::tryToFindInitialDPI() {
-    std::ifstream in(options::log_path);
+double CDesktopResizerXDpiMode::tryToFindInitialDPI() {
+    std::ifstream in(options::x_log_path);
     std::string data;
     double dpi = options::dpi_st;
 
@@ -272,3 +234,88 @@ double CDesktopResizerDpiMode::tryToFindInitialDPI() {
     in.close();
     return dpi;
 }
+
+CDesktopResizerXDpiMode::CDesktopResizerXDpiMode() : CDesktopResizer() {
+    if(std::getenv(options::wayland_display_env.c_str()) != nullptr) {
+        throw std::logic_error("DPI mode not supported in Wayland");
+    }
+}
+
+void CDesktopResizerXScaleMode::SetScale(uint32_t scale) {
+    XGrabServer(dpy);
+    XTransform transform;
+    std::string filter;
+    double k_scaling = static_cast<double >(scale)/100.0;
+    k_scaling = 1.0/k_scaling;
+
+    std::memset (&transform, '\0', sizeof (transform));
+    transform.matrix[0][0] = XDoubleToFixed (k_scaling);
+    transform.matrix[1][1] = XDoubleToFixed (k_scaling);
+    transform.matrix[2][2] = XDoubleToFixed (1.0);
+
+    if (k_scaling != 1) {
+        filter.append("bilinear");
+    } else {
+        filter.append("nearest");
+    }
+
+    RROutput output = resources->GetOutput();
+    XRRSetCrtcConfig (dpy, resources->Get(), resources->GetCrtc(), CurrentTime, 0, 0, None, RR_Rotate_0, NULL, 0);
+    try {
+        setScreenSize(&transform);
+        XRRSetCrtcTransform(dpy, resources->GetCrtc(), &transform, filter.c_str(), NULL, 0);
+        Status s = XRRSetCrtcConfig(dpy, resources->Get(), resources->GetCrtc(),
+                                    CurrentTime, 0, 0, resources->Get()->modes[0].id, RR_Rotate_0,
+                                    &output, 1);
+        if (s == RRSetConfigSuccess) {
+            setPanning(static_cast<double >(scale) / 100.0);
+        }
+    } catch (std::runtime_error const &error) {
+        XRRSetCrtcConfig(dpy, resources->Get(), resources->GetCrtc(),
+                         CurrentTime, 0, 0, resources->Get()->modes[0].id, RR_Rotate_0,
+                         &output, 1);
+    }
+    XUngrabServer(dpy);
+    XSync (dpy, False);
+}
+
+
+CDesktopResizerScaleMod *CDesktopResizerScaleMod::Create() {
+    if((std::getenv(options::wayland_display_env.c_str()) == nullptr)
+        && (std::getenv(options::display_env.c_str()) != nullptr)) {
+        return new CDesktopResizerXScaleMode();
+    }
+
+    if (CDBusConnection::IsInterface(mutter::interface)) {
+        return new CDesktopResizerMutterScaleMode();
+    }
+    throw std::logic_error ("Display type not found or unknown display type");
+
+}
+
+void CDesktopResizerMutterScaleMode::SetScale(uint32_t scale) {
+    GVariant* variant = nullptr;
+
+    variant = dBusConnection->CallMethod(mutter::interface, mutter::object, mutter::interface,
+            mutter::methodGetState, nullptr);
+
+    auto mutterConfigDisplay = new CMutterConfigDisplay(variant);
+
+    double k_scaling = static_cast<double >(scale)/100.0;
+
+    mutterConfigDisplay->SetScale(k_scaling);
+
+    dBusConnection->CallMethod(mutter::interface,mutter:: object, mutter::interface, mutter::methodApply, mutterConfigDisplay->CreateApplyArgument());
+
+    g_variant_unref (variant);
+    delete mutterConfigDisplay;
+}
+
+CDesktopResizerMutterScaleMode::CDesktopResizerMutterScaleMode() {
+    dBusConnection = new CDBusConnection();
+}
+
+CDesktopResizerMutterScaleMode::~CDesktopResizerMutterScaleMode() {
+    delete  dBusConnection;
+}
+

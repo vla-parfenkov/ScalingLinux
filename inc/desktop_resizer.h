@@ -11,13 +11,11 @@
 #include <stdexcept>
 #include <cstring>
 #include "screen_resource.h"
+#include "constant.h"
+#include "dbus_connection.h"
+#include "mutter_config_display.h"
 
 
-namespace options {
-    const double mm_per_inch = 25.4;
-    const double dpi_st = 96.0;
-    const std::string log_path = "/var/log/Xorg.0.log";
-}
 
 typedef struct {
     size_t	    x1, y1, x2, y2;
@@ -42,7 +40,7 @@ protected:
     int fb_width, fb_height;
 
 
-    int pixelsToMillimeters(int pixels, double dpi);
+    virtual int pixelsToMillimeters(int pixels, double dpi);
     int millimetersToPixels(int mm, double dpi);
     void  setScreenSize(const XTransform* transform);
     void transformPoint(const XTransform* transform, double* x, double* y);
@@ -51,6 +49,7 @@ protected:
 
 public:
     CDesktopResizer();
+
     ~CDesktopResizer();
 
     virtual void SetScale(uint32_t scale) {}
@@ -58,18 +57,37 @@ public:
 };
 
 
-class CDesktopResizerDpiMode : public CDesktopResizer {
+class CDesktopResizerXDpiMode : public CDesktopResizer {
 public:
     void SetScale(uint32_t scale) override;
+
+    CDesktopResizerXDpiMode();
 
 private:
     double tryToFindInitialDPI();
 };
 
+
 class CDesktopResizerScaleMod : public CDesktopResizer {
+public:
+    static CDesktopResizerScaleMod* Create();
+};
+
+
+class CDesktopResizerXScaleMode : public CDesktopResizerScaleMod {
 public:
     void SetScale(uint32_t scale) override;
 };
 
+
+class CDesktopResizerMutterScaleMode : public CDesktopResizerScaleMod {
+private:
+    CDBusConnection* dBusConnection;
+public:
+    CDesktopResizerMutterScaleMode();
+
+    ~CDesktopResizerMutterScaleMode();
+    void SetScale(uint32_t scale) override;
+};
 
 #endif //SCALINGUNIXSYSTEM_SCALING_SYSTEM_H
