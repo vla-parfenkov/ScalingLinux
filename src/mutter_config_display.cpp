@@ -314,7 +314,7 @@ GVariant *CMutterConfigDisplay::CreateApplyArgument() {
                           g_variant_builder_end (&props_builder));
 }
 
-/*O(n^3)? i try fix it later!*/
+
 void CMutterConfigDisplay::updateMonitorModeId() {
         for (auto &logicalMonitor : logicalMonitors) {
             for (auto &monitorSpec : logicalMonitor->getMonitors()) {

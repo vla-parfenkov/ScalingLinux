@@ -34,6 +34,8 @@ namespace mutter {
     const std::string object =  "/org/gnome/Mutter/DisplayConfig";
     const std::string methodGetState =  "GetCurrentState";
     const std::string methodApply = "ApplyMonitorsConfig";
+    const std::string gsetting_shema = "org.gnome.mutter";
+    const std::string experimental_features = "experimental-features";
 }
 
 

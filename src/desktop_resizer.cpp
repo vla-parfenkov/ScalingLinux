@@ -296,6 +296,8 @@ CDesktopResizerScaleMod *CDesktopResizerScaleMod::Create() {
 void CDesktopResizerMutterScaleMode::SetScale(uint32_t scale) {
     GVariant* variant = nullptr;
 
+    setScaleMonitorFramebufferMode();
+
     variant = dBusConnection->CallMethod(mutter::interface, mutter::object, mutter::interface,
             mutter::methodGetState, nullptr);
 
@@ -317,5 +319,35 @@ CDesktopResizerMutterScaleMode::CDesktopResizerMutterScaleMode() {
 
 CDesktopResizerMutterScaleMode::~CDesktopResizerMutterScaleMode() {
     delete  dBusConnection;
+}
+
+void CDesktopResizerMutterScaleMode::setScaleMonitorFramebufferMode() {
+    GSettings* settings = g_settings_new(mutter::gsetting_shema.c_str());
+    char** old =  g_settings_get_strv(settings, mutter::experimental_features.c_str());
+    std::string scaleMonitorBuffer = "scale-monitor-framebuffer";
+    char** array;
+    uint32_t size = 0;
+
+    for (size = 0; old[size] != NULL; size++) {
+        if(strcmp((scaleMonitorBuffer + "\n").c_str(), *old)) {
+            g_strfreev(old);
+            return;
+        }
+    }
+
+    size += 1; /* appended value */
+    size += 1; /* NULL */
+
+    array = (char**)g_realloc_n (old, size, sizeof (char *));
+
+    array[size - 2] = g_strdup (scaleMonitorBuffer.c_str());
+    array[size - 1] = NULL;
+
+
+    g_settings_set_strv(settings, mutter::experimental_features.c_str(), array);
+    g_settings_apply(settings);
+    g_settings_sync();
+    std::cout << "The mutter experimental-features mode is on" << std::endl;
+    g_strfreev(array);
 }
 

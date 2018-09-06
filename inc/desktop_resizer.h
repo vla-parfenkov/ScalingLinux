@@ -83,6 +83,7 @@ public:
 class CDesktopResizerMutterScaleMode : public CDesktopResizerScaleMod {
 private:
     CDBusConnection* dBusConnection;
+    void setScaleMonitorFramebufferMode();
 public:
     CDesktopResizerMutterScaleMode();
 
