@@ -11,7 +11,7 @@
 #include <desktop_resizer.h>
 
 
-CDesktopResizer::CDesktopResizer() : grab(false) {
+CDesktopResizer::CDesktopResizer()  {
     char *display_name = nullptr;
 
     dpy = XOpenDisplay(display_name);
@@ -19,7 +19,7 @@ CDesktopResizer::CDesktopResizer() : grab(false) {
     if (dpy == nullptr) {
         std::string error = "Can't open display ";
         error.append(XDisplayName(display_name));
-        throw std::runtime_error(error);
+        throw std::logic_error(error);
     }
 
     screen  = DefaultScreen (dpy);
@@ -28,7 +28,7 @@ CDesktopResizer::CDesktopResizer() : grab(false) {
         error.append(std::to_string(screen));
         error.append("(display has ");
         error.append(std::to_string(ScreenCount(dpy)));
-        throw std::runtime_error(error);
+        throw std::logic_error(error);
     }
 
     window = RootWindow(dpy, screen);
@@ -43,6 +43,9 @@ CDesktopResizer::CDesktopResizer() : grab(false) {
     }
 
     XRRGetScreenSizeRange (dpy, window, &minWidth, &minHeight, &maxWidth, &maxHeight);
+
+    //Set XErrorHandler
+   // XSetErrorHandler(xErrorHandler);
 }
 
 CDesktopResizer::~CDesktopResizer() {
@@ -53,8 +56,7 @@ CDesktopResizer::~CDesktopResizer() {
 
 int CDesktopResizer::pixelsToMillimeters(int pixels, double dpi) {
     if(dpi <= 0) {
-        std::string error = "Invalid dpi number ";
-        throw std::runtime_error(error);
+        throw std::invalid_argument("Invalid dpi number ");
     }
     return static_cast<int>((options::mm_per_inch * pixels)/dpi);
 }
@@ -199,12 +201,14 @@ void CDesktopResizer::setPanning(double scale) {
         if(major > 1 || (major == 1 && minor >= 3)) {
             Status s = XRRSetPanning(dpy, resources->Get(), resources->GetCrtc(), pan);
             if (s != RRSetConfigSuccess) {
+                XRRFreePanning(pan);
                 throw std::logic_error("Set panning error");
             }
         }
-        XFree(pan);
+        XRRFreePanning(pan);
     }
 }
+
 
 
 double CDesktopResizerXDpiMode::tryToFindInitialDPI() {
@@ -243,6 +247,7 @@ CDesktopResizerXDpiMode::CDesktopResizerXDpiMode() : CDesktopResizer() {
 
 void CDesktopResizerXScaleMode::SetScale(uint32_t scale) {
     XGrabServer(dpy);
+    XSynchronize(dpy, true);
     XTransform transform;
     std::string filter;
     double k_scaling = static_cast<double >(scale)/100.0;
@@ -263,21 +268,69 @@ void CDesktopResizerXScaleMode::SetScale(uint32_t scale) {
     XRRSetCrtcConfig (dpy, resources->Get(), resources->GetCrtc(), CurrentTime, 0, 0, None, RR_Rotate_0, NULL, 0);
     try {
         setScreenSize(&transform);
-        XRRSetCrtcTransform(dpy, resources->GetCrtc(), &transform, filter.c_str(), NULL, 0);
+        int major, minor;
+        XRRQueryVersion(dpy, &major, &minor);
+
+        if (major > 1 || (major == 1 && minor >= 3)) {
+            XRRSetCrtcTransform(dpy, resources->GetCrtc(), &transform, filter.c_str(), NULL, 0);
+        }
         Status s = XRRSetCrtcConfig(dpy, resources->Get(), resources->GetCrtc(),
-                                    CurrentTime, 0, 0, resources->Get()->modes[0].id, RR_Rotate_0,
-                                    &output, 1);
-        if (s == RRSetConfigSuccess) {
+                CurrentTime, 0, 0, resources->Get()->modes[0].id, RR_Rotate_0,
+                &output, 1);
+        if (s != RRSetConfigSuccess) {
+            rollBack();
+        } else {
             setPanning(static_cast<double >(scale) / 100.0);
         }
-    } catch (std::runtime_error const &error) {
-        XRRSetCrtcConfig(dpy, resources->Get(), resources->GetCrtc(),
-                         CurrentTime, 0, 0, resources->Get()->modes[0].id, RR_Rotate_0,
-                         &output, 1);
+    } catch (std::exception const &error) {
+        std::cerr << error.what() << std::endl;
+        rollBack();
     }
     XUngrabServer(dpy);
+    XSynchronize(dpy, false);
     XSync (dpy, False);
 }
+
+void CDesktopResizer::rollBack() {
+
+
+    for (uint32_t c = 0; c < resources->Get()->ncrtc; c++) {
+        RRCrtc crtc = resources->Get()->crtcs[c];
+        XRRSetCrtcConfig(dpy, resources->Get(), crtc, CurrentTime,
+                0, 0, None, RR_Rotate_0, NULL, 0);
+    }
+
+    XRRSetScreenSize (dpy, window,
+                      DisplayWidth (dpy, screen),
+                      DisplayHeight (dpy, screen),
+                      DisplayWidthMM (dpy, screen),
+                      DisplayHeightMM (dpy, screen));
+
+
+    for (uint32_t c = 0; c < resources->Get()->ncrtc; c++) {
+        XRRCrtcTransformAttributes *attributes = nullptr;
+        RRCrtc crtc = resources->Get()->crtcs[c];
+        XRRCrtcInfo* crtcInfo = XRRGetCrtcInfo(dpy, resources->Get(), crtc);
+        XRRGetCrtcTransform(dpy, crtc, &attributes);
+        XRRSetCrtcTransform(dpy, crtc, &attributes->currentTransform, const_cast<const char*>(attributes->currentFilter),
+                attributes->currentParams, attributes->currentNparams);
+        XRRSetCrtcConfig (dpy, resources->Get(), crtc, CurrentTime,
+                                 crtcInfo->x, crtcInfo->y,
+                                 crtcInfo->mode, crtcInfo->rotation,
+                                 crtcInfo->outputs, crtcInfo->noutput);
+        XRRFreeCrtcInfo(crtcInfo);
+        XFree(attributes);
+    }
+
+
+}
+
+/*This XErrorHandler can be use for logging X error*/
+/*int CDesktopResizer::xErrorHandler(Display *dpy, XErrorEvent *error) {
+    std::cerr << "Error code: " << error->error_code << std::endl;
+    std::cerr << "Error text: " << XGetErrorText(dpy, error->error_code, buffer, bufferSize) << std::endl;
+    return 0;
+}*/
 
 
 CDesktopResizerScaleMod *CDesktopResizerScaleMod::Create() {

@@ -28,7 +28,6 @@ typedef struct {
 
 class CDesktopResizer {
 protected:
-    bool grab;
     Window window;
     Display *dpy;
     int screen;
@@ -45,7 +44,8 @@ protected:
     void  setScreenSize(const XTransform* transform);
     void transformPoint(const XTransform* transform, double* x, double* y);
     void setPanning(double scale);
-
+    void rollBack();
+    //static int xErrorHandler(Display *dpy, XErrorEvent* error);
 
 public:
     CDesktopResizer();

@@ -10,7 +10,7 @@ int main(int argc, char* argv[]) {
         auto desktopResizer = argumentParser->Parse(argv);
         desktopResizer->SetScale(argumentParser->GetScale());
     } catch (std::exception const &error) {
-        std::cout << error.what() << std::endl;
+        std::cerr << error.what() << std::endl;
     }
 
     if(argumentParser != nullptr) {
