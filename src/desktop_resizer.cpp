@@ -194,16 +194,11 @@ void CDesktopResizer::setPanning(double scale) {
         pan->top = pan->left = pan->track_left = pan->track_top = pan->track_width = 0;
         pan->track_height = pan->border_left = pan->border_top = pan->border_right = pan->border_bottom = 0;
 
-        int major, minor;
 
-        XRRQueryVersion(dpy, &major, &minor);
-
-        if(major > 1 || (major == 1 && minor >= 3)) {
-            Status s = XRRSetPanning(dpy, resources->Get(), resources->GetCrtc(), pan);
-            if (s != RRSetConfigSuccess) {
-                XRRFreePanning(pan);
-                throw std::logic_error("Set panning error");
-            }
+        Status s = XRRSetPanning(dpy, resources->Get(), resources->GetCrtc(), pan);
+        if (s != RRSetConfigSuccess) {
+            XRRFreePanning(pan);
+            throw std::logic_error("Set panning error");
         }
         XRRFreePanning(pan);
     }
@@ -246,6 +241,12 @@ CDesktopResizerXDpiMode::CDesktopResizerXDpiMode() : CDesktopResizer() {
 }
 
 void CDesktopResizerXScaleMode::SetScale(uint32_t scale) {
+    int major, minor;
+    XRRQueryVersion(dpy, &major, &minor);
+
+    if (major < 1 || (major == 1 && minor < 3)) {
+        throw std::logic_error("RandR version < 1.3 don't supported scaling");
+    }
     XGrabServer(dpy);
     XSynchronize(dpy, true);
     XTransform transform;
@@ -268,12 +269,7 @@ void CDesktopResizerXScaleMode::SetScale(uint32_t scale) {
     XRRSetCrtcConfig (dpy, resources->Get(), resources->GetCrtc(), CurrentTime, 0, 0, None, RR_Rotate_0, NULL, 0);
     try {
         setScreenSize(&transform);
-        int major, minor;
-        XRRQueryVersion(dpy, &major, &minor);
-
-        if (major > 1 || (major == 1 && minor >= 3)) {
-            XRRSetCrtcTransform(dpy, resources->GetCrtc(), &transform, filter.c_str(), NULL, 0);
-        }
+        XRRSetCrtcTransform(dpy, resources->GetCrtc(), &transform, filter.c_str(), NULL, 0);
         Status s = XRRSetCrtcConfig(dpy, resources->Get(), resources->GetCrtc(),
                 CurrentTime, 0, 0, resources->Get()->modes[0].id, RR_Rotate_0,
                 &output, 1);
