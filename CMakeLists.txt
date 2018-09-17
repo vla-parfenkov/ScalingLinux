@@ -11,6 +11,12 @@ find_package(X11 REQUIRED)
 link_libraries(${X11_LIBRARIES} ${X11_Xrandr_LIB})
 include_directories(${X11_INCLUDE_DIR})
 
+find_package(PkgConfig)
+pkg_search_module(GIO REQUIRED gio-2.0)
+
+include_directories(${GIO_INCLUDE_DIRS})
+link_libraries( ${GIO_LDFLAGS})
+
 
 
 set(SOURCE_FILES src/main.cpp src/desktop_resizer.cpp src/argument_parser.cpp src/screen_resource.cpp )
