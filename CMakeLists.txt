@@ -11,6 +11,7 @@ find_package(X11 REQUIRED)
 link_libraries(${X11_LIBRARIES} ${X11_Xrandr_LIB})
 include_directories(${X11_INCLUDE_DIR})
 
+
 find_package(PkgConfig REQUIRED)
 pkg_search_module(GLIB REQUIRED glib-2.0)
 include_directories(${GLIB_INCLUDE_DIRS})
