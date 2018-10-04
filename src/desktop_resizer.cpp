@@ -384,8 +384,8 @@ void CDesktopResizerMutterScaleMode::setScaleMonitorFramebufferMode() {
         }
     }
 
-    size += 1; /* appended value */
-    size += 1; /* NULL */
+    size += 1; 
+    size += 1; 
 
     array = (char**)g_realloc_n (old, size, sizeof (char *));
 
@@ -399,4 +399,3 @@ void CDesktopResizerMutterScaleMode::setScaleMonitorFramebufferMode() {
     std::cout << "The mutter experimental-features mode is on" << std::endl;
     g_strfreev(array);
 }
-

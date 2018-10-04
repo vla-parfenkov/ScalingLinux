@@ -28,7 +28,7 @@ GVariant *CDBusConnection::CallMethod(const std::string bus, const std::string o
                                       const std::string method, GVariant *param) {
     GVariant* reply = nullptr;
     reply = g_dbus_connection_call_sync(connection, bus.c_str(), object.c_str(), interface.c_str(), method.c_str(),
-                                        param, NULL,  G_DBUS_CALL_FLAGS_NO_AUTO_START, -1, NULL, &error);
+            param, NULL,  G_DBUS_CALL_FLAGS_NO_AUTO_START, -1, NULL, &error);
     if (error) {
         throw std::logic_error(error->message);
     }
